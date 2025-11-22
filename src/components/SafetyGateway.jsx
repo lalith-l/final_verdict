@@ -14,6 +14,9 @@ const SafetyGateway = () => {
     ldfScore: '0.00',
     totalScanned: 0,
     blockedCount: 0,
+    cpuSpeed: 0,
+    cpuThroughput: 0,
+    cpuCores: 0,
   });
   const [layerStatus, setLayerStatus] = useState({
     RITD: 'idle',
@@ -60,6 +63,9 @@ const SafetyGateway = () => {
         ldfScore: Number(data?.metrics?.ldfScore || 0).toFixed(2),
         totalScanned: data?.counters?.totalScanned ?? prev.totalScanned,
         blockedCount: data?.counters?.blockedCount ?? prev.blockedCount,
+        cpuSpeed: data?.performance?.cpuSpeed ?? prev.cpuSpeed,
+        cpuThroughput: data?.performance?.cpuThroughput ?? prev.cpuThroughput,
+        cpuCores: data?.performance?.cpuCores ?? prev.cpuCores,
       }));
 
       const processLayer = async (layerKey, layerLabel) => {
@@ -269,9 +275,10 @@ const SafetyGateway = () => {
             </div>
 
             {/* Metrics Panel */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
                <MetricCard label="Linguistic Entropy" value={metrics.ncdScore || '0.00'} active={layerStatus.NCD !== 'idle'} />
                <MetricCard label="Structural Deviation" value={metrics.ldfScore || '0.00'} active={layerStatus.LDF !== 'idle'} />
+               <MetricCard label="CPU Speed (MHz)" value={metrics.cpuSpeed || '0'} active={true} />
                <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col justify-center items-center">
                   <span className="text-xs text-gray-500 uppercase mb-1">Gateway Status</span>
                   <div className="flex items-center gap-2">
@@ -279,6 +286,12 @@ const SafetyGateway = () => {
                     <span className="font-mono text-sm text-white">{isProcessing ? 'ANALYZING' : 'ONLINE'}</span>
                   </div>
                </div>
+            </div>
+
+            {/* CPU Performance Metrics */}
+            <div className="grid grid-cols-2 gap-4">
+               <MetricCard label="CPU Throughput (MB/s)" value={metrics.cpuThroughput || '0'} active={true} />
+               <MetricCard label="CPU Cores Available" value={metrics.cpuCores || '0'} active={true} />
             </div>
 
           </div>
