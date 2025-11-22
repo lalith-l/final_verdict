@@ -42,7 +42,7 @@ const SafetyGateway = () => {
     addLog(`[CLIENT] Dispatching prompt (${prompt.length} chars) to gateway.`, 'system');
 
     try {
-      const response = await fetch('http://localhost:4000/analyze', {
+      const response = await fetch('http://localhost:3001/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt }),

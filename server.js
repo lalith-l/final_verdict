@@ -1,63 +1,85 @@
-const path = require('path');
+const fastify = require('fastify')({ logger: true });
 const fs = require('fs');
-const Fastify = require('fastify');
-const cors = require('@fastify/cors');
 const { gzipSync } = require('zlib');
+const path = require('path');
 
-const PORT = process.env.PORT || 4000;
+// Register CORS
+fastify.register(require('@fastify/cors'), {
+  origin: true
+});
 
+const PORT = process.env.PORT || 3001;
+
+// Data files
 const DATA_FILES = {
-  safe: path.resolve(__dirname, 'safe_prompts.csv'),
-  unsafe: path.resolve(__dirname, 'unsafe_prompts.csv'),
+  safe: path.join(__dirname, 'safe_prompts.csv'),
+  unsafe: path.join(__dirname, 'unsafe_prompts.csv'),
 };
 
+// Stopwords and function words for linguistic analysis
 const STOPWORDS = new Set([
-  'a', 'an', 'the', 'and', 'or', 'but', 'if', 'in', 'on', 'with', 'for', 'to',
-  'from', 'by', 'about', 'as', 'at', 'be', 'is', 'are', 'was', 'were', 'this',
-  'that', 'it', 'of', 'so', 'can', 'you', 'me', 'my', 'your',
+  'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them'
 ]);
 
 const FUNCTION_WORDS = new Set([
-  'i', 'you', 'he', 'she', 'they', 'we', 'am', 'is', 'are', 'was', 'were',
-  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'shall', 'should', 'would',
-  'could', 'may', 'might', 'must', 'not', 'no', 'yes', 'please',
+  'about', 'above', 'across', 'after', 'against', 'along', 'among', 'around', 'before', 'behind', 'below', 'beneath', 'beside', 'between', 'beyond', 'during', 'except', 'from', 'into', 'near', 'over', 'through', 'toward', 'under', 'until', 'upon', 'within', 'without'
 ]);
 
+// Role inversion detection patterns
 const baseTriggers = [
-  /ignore (?:all )?(?:previous|prior) (?:rules|instructions)/i,
-  /you are no longer/i,
-  /act as/i,
-  /developer mode/i,
-  /system override/i,
-  /disregard your training/i,
-  /bypass (?:all )?(?:safety|rules)/i,
-  /give me (?:your )?system prompt/i,
-  /print your training data/i,
-  /reveal .*configuration/i,
-  /repeat after me/i,
-  /hacked/i,
+  /(?:ignore|forget|disregard).{0,20}(?:previous|above|prior|earlier)/i,
+  /(?:act|behave|pretend).{0,20}(?:as|like).{0,20}(?:different|another|new)/i,
+  /(?:system|admin|root|developer).{0,20}(?:mode|access|override|bypass)/i,
+  /(?:reveal|show|tell|give).{0,20}(?:secret|hidden|confidential|private)/i,
 ];
 
-const datasets = loadDatasets();
-const safeSamples = datasets.filter((row) => row.label === 'safe');
-const unsafeSamples = datasets.filter((row) => row.label === 'unsafe');
-
-const safeCorpus = safeSamples.map((s) => s.text).join('\n') || 'safe';
-const unsafeCorpus = unsafeSamples.map((s) => s.text).join('\n') || 'unsafe';
-
-const safeEntropyStats = computeEntropyStats(safeSamples);
-const unsafeEntropyStats = computeEntropyStats(unsafeSamples);
-
-const safeFeatureStats = computeFeatureStats(safeSamples.map((s) => computeFeatureVector(s.text)));
-
+// Global variables for statistics
 let totalScanned = 0;
 let blockedCount = 0;
 
-const fastify = Fastify({ logger: false });
+// Load and process datasets
+const datasets = loadDatasets();
+const safeData = datasets.filter(row => row.label === 'safe');
+const unsafeData = datasets.filter(row => row.label === 'unsafe');
 
-fastify.register(cors, { origin: true });
+// Compute baseline statistics
+const safeEntropyStats = computeEntropyStats(safeData);
+const unsafeEntropyStats = computeEntropyStats(unsafeData);
 
-fastify.get('/health', async () => ({ status: 'ok' }));
+const safeFeatureVectors = safeData.map(row => computeFeatureVector(row.text));
+const safeFeatureStats = computeFeatureStats(safeFeatureVectors);
+
+// Create corpus for NCD analysis
+const safeCorpus = safeData.slice(0, 100).map(row => row.text).join('\n');
+const unsafeCorpus = unsafeData.slice(0, 100).map(row => row.text).join('\n');
+
+// Forward to Ollama
+async function forwardToOllama(prompt) {
+  try {
+    const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
+    const model = process.env.OLLAMA_MODEL || 'llama3.2:3b';
+    
+    const response = await fetch(`${ollamaUrl}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: model,
+        prompt: prompt,
+        stream: false
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ollama API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.response || 'No response from LLM';
+  } catch (err) {
+    console.error('Ollama forwarding failed:', err);
+    return `Fallback: LLM unavailable (ensure 'ollama serve' is running). Error: ${err.message}`;
+  }
+}
 
 fastify.post('/analyze', async (request, reply) => {
   const { prompt } = request.body || {};
@@ -72,8 +94,15 @@ fastify.post('/analyze', async (request, reply) => {
     blockedCount += 1;
   }
 
+  // Forward to Ollama if safe
+  let llmResponse = null;
+  if (analysis.result === 'SAFE') {
+    llmResponse = await forwardToOllama(prompt);
+  }
+
   return {
     ...analysis,
+    llmResponse,  // Only populated if SAFE
     counters: {
       totalScanned,
       blockedCount,
@@ -332,5 +361,5 @@ function analyzePrompt(prompt) {
 module.exports = {
   fastify,
   analyzePrompt,
+  forwardToOllama,
 };
-
