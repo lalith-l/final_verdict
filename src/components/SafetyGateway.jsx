@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Shield, Terminal, Lock, Unlock, AlertTriangle, Activity, FileText, Cpu, BarChart3, CheckCircle2, XCircle, Play, RefreshCw, Zap } from 'lucide-react';
 import PipelineNode from './PipelineNode';
 import MetricCard from './MetricCard';
+import XRayView from './XRayView';
+import RadarChart from './RadarChart';
 
 const SafetyGateway = () => {
   const [prompt, setPrompt] = useState('');
@@ -23,6 +25,10 @@ const SafetyGateway = () => {
     NCD: 'idle',
     LDF: 'idle',
   });
+  const [llmResponse, setLlmResponse] = useState(null);
+  const [llmError, setLlmError] = useState(null);
+  const [threatAnalysis, setThreatAnalysis] = useState(null);
+  const [layersData, setLayersData] = useState(null);
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -36,6 +42,10 @@ const SafetyGateway = () => {
     setCurrentLayer(null);
     setLayerStatus({ RITD: 'idle', NCD: 'idle', LDF: 'idle' });
     setLogs([]);
+    setLlmResponse(null);
+    setLlmError(null);
+    setThreatAnalysis(null);
+    setLayersData(null);
   };
 
   const runSimulation = async () => {
@@ -56,6 +66,18 @@ const SafetyGateway = () => {
       }
 
       const data = await response.json();
+
+      // Store layers data for X-Ray view
+      if (data.layers) {
+        setLayersData(data.layers);
+      }
+
+      // Store threat analysis if available
+      if (data.threatAnalysis) {
+        setThreatAnalysis(data.threatAnalysis);
+        addLog(`Threat Score: ${data.threatAnalysis.threatScore}/${data.threatAnalysis.maxScore} (${data.threatAnalysis.percentage}%) - ${data.threatAnalysis.confidence} confidence`, 
+          data.threatAnalysis.threatScore >= 50 ? 'error' : data.threatAnalysis.threatScore >= 30 ? 'info' : 'success');
+      }
 
       setMetrics((prev) => ({
         ...prev,
@@ -109,6 +131,22 @@ const SafetyGateway = () => {
       setResult('SAFE');
       addLog('Prompt cleared all defenses.', 'success');
       addLog('Forwarding to upstream LLM API...', 'system');
+      
+      // Handle LLM response
+      if (data.llmResponse) {
+        if (typeof data.llmResponse === 'string' && data.llmResponse.startsWith('Error:')) {
+          setLlmError(data.llmResponse);
+          addLog(`LLM Error: ${data.llmResponse}`, 'error');
+        } else {
+          setLlmResponse(data.llmResponse);
+          addLog('LLM response received successfully.', 'success');
+        }
+      } else if (data.error) {
+        setLlmError(data.error);
+        addLog(`LLM Error: ${data.error}`, 'error');
+      } else {
+        addLog('No LLM response received.', 'info');
+      }
     } catch (error) {
       console.error(error);
       setLayerStatus({ RITD: 'idle', NCD: 'idle', LDF: 'idle' });
@@ -293,6 +331,97 @@ const SafetyGateway = () => {
                <MetricCard label="CPU Throughput (MB/s)" value={metrics.cpuThroughput || '0'} active={true} />
                <MetricCard label="CPU Cores Available" value={metrics.cpuCores || '0'} active={true} />
             </div>
+
+            {/* X-Ray & Radar Visualizations */}
+            {(threatAnalysis || layersData) && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <XRayView 
+                  threatAnalysis={threatAnalysis} 
+                  layers={layersData} 
+                  result={result}
+                />
+                <RadarChart 
+                  threatAnalysis={threatAnalysis} 
+                  layers={layersData}
+                />
+              </div>
+            )}
+
+            {/* Threat Analysis Display */}
+            {threatAnalysis && (
+              <div className={`bg-gray-800 p-6 rounded-xl border ${threatAnalysis.threatScore >= 50 ? 'border-red-500/50' : threatAnalysis.threatScore >= 30 ? 'border-orange-500/50' : 'border-blue-500/50'} shadow-lg`}>
+                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <BarChart3 className={`w-5 h-5 ${threatAnalysis.threatScore >= 50 ? 'text-red-400' : threatAnalysis.threatScore >= 30 ? 'text-orange-400' : 'text-blue-400'}`} />
+                  <span className={threatAnalysis.threatScore >= 50 ? 'text-red-400' : threatAnalysis.threatScore >= 30 ? 'text-orange-400' : 'text-blue-400'}>
+                    Comprehensive Threat Analysis
+                  </span>
+                </h2>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-400">Threat Score</span>
+                    <div className="flex items-center gap-3">
+                      <div className="w-32 bg-gray-700 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all ${threatAnalysis.threatScore >= 50 ? 'bg-red-500' : threatAnalysis.threatScore >= 30 ? 'bg-orange-500' : 'bg-blue-500'}`}
+                          style={{ width: `${threatAnalysis.percentage}%` }}
+                        ></div>
+                      </div>
+                      <span className={`font-bold text-sm ${threatAnalysis.threatScore >= 50 ? 'text-red-400' : threatAnalysis.threatScore >= 30 ? 'text-orange-400' : 'text-blue-400'}`}>
+                        {threatAnalysis.threatScore}/{threatAnalysis.maxScore} ({threatAnalysis.percentage}%)
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-400">Confidence Level</span>
+                    <span className={`font-semibold px-3 py-1 rounded ${threatAnalysis.confidence === 'HIGH' ? 'bg-red-500/20 text-red-400' : threatAnalysis.confidence === 'MEDIUM' ? 'bg-orange-500/20 text-orange-400' : threatAnalysis.confidence === 'LOW' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400'}`}>
+                      {threatAnalysis.confidence}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-400">Recommended Action</span>
+                    <span className={`font-semibold ${threatAnalysis.recommendedAction === 'BLOCK' ? 'text-red-400' : threatAnalysis.recommendedAction === 'REVIEW' ? 'text-orange-400' : 'text-green-400'}`}>
+                      {threatAnalysis.recommendedAction}
+                    </span>
+                  </div>
+                  {threatAnalysis.breakdown && threatAnalysis.breakdown.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-700">
+                      <span className="text-sm text-gray-400 mb-2 block">Score Breakdown:</span>
+                      <div className="space-y-1">
+                        {threatAnalysis.breakdown.map((item, idx) => (
+                          <div key={idx} className="text-xs text-gray-300 font-mono bg-gray-900/50 p-2 rounded">
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* LLM Response Display */}
+            {(llmResponse || llmError) && (
+              <div className={`bg-gray-800 p-6 rounded-xl border ${llmError ? 'border-red-500/50' : 'border-emerald-500/50'} shadow-lg`}>
+                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  {llmError ? (
+                    <>
+                      <AlertTriangle className="w-5 h-5 text-red-400" />
+                      <span className="text-red-400">LLM Response Error</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="w-5 h-5 text-emerald-400" />
+                      <span className="text-emerald-400">LLM Response</span>
+                    </>
+                  )}
+                </h2>
+                <div className={`bg-gray-900 border rounded-lg p-4 max-h-96 overflow-y-auto ${llmError ? 'border-red-500/30' : 'border-emerald-500/30'}`}>
+                  <pre className="text-sm text-gray-300 whitespace-pre-wrap font-mono">
+                    {llmError || llmResponse}
+                  </pre>
+                </div>
+              </div>
+            )}
 
           </div>
         </div>
