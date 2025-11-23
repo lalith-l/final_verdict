@@ -63,7 +63,12 @@ const dangerousKeywords = [
   'breach', 'breaching', 'penetrate', 'penetration', 'unauthorized access', 'illegal access',
   'steal data', 'steal information', 'backdoor', 'trojan', 'rootkit', 'keylogger',
   'spyware', 'ransomware', 'malware', 'virus injection', 'sql injection', 'xss',
-  'ddos', 'phishing', 'social engineering', 'privilege escalation', 'buffer overflow'
+  'ddos', 'phishing', 'social engineering', 'privilege escalation', 'buffer overflow',
+  // Weapons and illegal activities
+  'bomb', 'explosive', 'weapon', 'gun', 'rifle', 'ammunition', 'grenade', 'c4',
+  'pipe bomb', 'molotov', 'ied', 'detonator', 'dynamite', 'tnt',
+  'poison', 'toxin', 'ricin', 'cyanide', 'anthrax',
+  'drug manufacturing', 'meth lab', 'cocaine production', 'heroin synthesis'
 ];
 
 // Global variables for statistics
