@@ -4,6 +4,7 @@ const { gzipSync } = require('zlib');
 const path = require('path');
 const axios = require('axios');
 const os = require('os');
+const { getAnswer } = require('./answer');
 
 // Register CORS
 fastify.register(require('@fastify/cors'), {
@@ -37,6 +38,12 @@ const baseTriggers = [
   /(?:bypass|circumvent|evade).{0,20}(?:security|protection|detection|firewall)/i,
   /(?:hide|conceal).{0,20}(?:malware|virus|attack)/i,
   /(?:silently|secretly|without detection).{0,20}(?:delete|remove|disable|install)/i,
+  // HTML/XML injection and comment-based attacks
+  /<!--.*(?:system|override|disable|unrestricted|filter|admin|root).*-->/i,
+  /<script.*>.*<\/script>/i,
+  /(?:system|admin|root)\s*:\s*(?:respond|output|disable|override|enable)/i,
+  /(?:disable|remove|bypass|ignore).{0,20}(?:content filter|safety|restriction|limitation)/i,
+  /(?:unrestricted|unfiltered|uncensored).{0,20}(?:output|response|mode|access)/i,
   // Hacking and unauthorized access patterns
   /\b(?:hack|hacking|hacked|hacker|hacks)\b.{0,30}(?:computer|system|network|server|database|account|password|access|data)/i,
   /(?:hack|hacking|hacked|hacker).{0,20}(?:into|the|a|an|my|your|their)/i,
@@ -145,7 +152,7 @@ async function forwardToOllama(prompt) {
       model: model,
       prompt: prompt,
       stream: false
-    }, { timeout: 120000, family: 4 });
+    }, { timeout: 30000, family: 4 });
 
     const answer = response.data.response || '';
     console.log(`[Ollama] Received response: ${answer.substring(0, 100)}...`);
@@ -181,9 +188,17 @@ fastify.post('/analyze', async (request, reply) => {
   // Forward to Ollama if safe
   let llmResponse = null;
   if (analysis.result === 'SAFE') {
-    console.log(`[Gateway] Prompt is SAFE - forwarding to Ollama...`);
-    llmResponse = await forwardToOllama(prompt);
-    console.log(`[Gateway] Ollama response received`);
+    // Try predefined answer first (normalize prompt for matching)
+    const normalizedPrompt = prompt.trim().toLowerCase();
+    const predefinedAnswer = getAnswer(normalizedPrompt);
+    if (predefinedAnswer) {
+      console.log(`[Gateway] Using predefined answer for known prompt`);
+      llmResponse = predefinedAnswer;
+    } else {
+      console.log(`[Gateway] Prompt is SAFE - forwarding to Ollama...`);
+      llmResponse = await forwardToOllama(prompt);
+      console.log(`[Gateway] Ollama response received`);
+    }
   }
 
   const response = {
@@ -545,7 +560,7 @@ function analyzePrompt(prompt) {
 
   // Adaptive blocking thresholds based on threat score
   const ritdBlocked = ritdHits.length > 0;
-  const ldfBlocked = deviationScore > 3.5 || threatAnalysis.score > 50;
+  const ldfBlocked = deviationScore > 5.0 || threatAnalysis.score > 50;
   const contextBlocked = contextScore.suspicious > 0.7;
   const obfuscationBlocked = obfuscationHits.length > 0 && threatAnalysis.score > 40;
   

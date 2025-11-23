@@ -1,4 +1,3 @@
-# Add this cell to your notebook after the existing cells
 
 import requests
 import json
@@ -53,7 +52,6 @@ def safe_prompt_chatbot():
             print("👋 Goodbye!")
             break
             
-        # Check safety first using gateway API
         is_safe, llm_response = check_prompt_safety(user_prompt)
         
         if is_safe:
@@ -68,11 +66,9 @@ def safe_prompt_chatbot():
             print("🚫 Prompt is UNSAFE - Blocked for security")
             print("🛡️ Please try a different, safer prompt.\n")
 
-# Test with a single safe prompt
 test_prompt = "What is machine learning?"
 print(f"Testing: '{test_prompt}'")
 
-# Check if safe using gateway API
 is_safe, llm_response = check_prompt_safety(test_prompt)
 
 if is_safe:
@@ -85,7 +81,3 @@ if is_safe:
         print(f"🤖 Response: {response}")
 else:
     print("🚫 Unsafe prompt - Blocked")
-
-# Start interactive chatbot
-# Uncomment the line below to start chatting
-# safe_prompt_chatbot()

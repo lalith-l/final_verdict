@@ -1,9 +1,7 @@
-# CELL 1: Install packages and test gateway
 !pip install requests
 
 import requests
 
-# Test gateway connection
 def test_gateway():
     try:
         response = requests.post('http://localhost:3001/analyze', 
@@ -20,7 +18,6 @@ def test_gateway():
 
 test_gateway()
 
-# CELL 2: Gateway calibration test
 import requests
 
 def test_gateway_calibration():
@@ -78,7 +75,6 @@ def test_gateway_calibration():
 
 test_gateway_calibration()
 
-# CELL 3: Test malicious prompts
 import requests
 
 def test_malicious_prompts():
@@ -120,7 +116,6 @@ def test_malicious_prompts():
 
 test_malicious_prompts()
 
-# CELL 4: Safe chatbot with Ollama
 import requests
 
 def chat_with_ollama(prompt):
@@ -146,7 +141,6 @@ def safe_chatbot():
     for prompt in test_prompts:
         print(f"\n🔍 Testing: '{prompt}'")
         
-        # Check safety first
         response = requests.post('http://localhost:3001/analyze', 
             json={"prompt": prompt}, timeout=10)
         

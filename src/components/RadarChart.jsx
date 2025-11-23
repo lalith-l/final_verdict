@@ -4,7 +4,6 @@ import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Responsi
 const RadarChartComponent = ({ threatAnalysis, layers }) => {
   if (!threatAnalysis) return null;
 
-  // Prepare data for radar chart
   const radarData = [
     {
       dimension: 'RITD',

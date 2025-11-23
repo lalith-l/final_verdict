@@ -67,7 +67,6 @@ const SafetyGateway = () => {
 
       const data = await response.json();
 
-      // Store layers data for X-Ray view
       if (data.layers) {
         setLayersData(data.layers);
       }
@@ -94,7 +93,7 @@ const SafetyGateway = () => {
         setCurrentLayer(layerKey);
         setLayerStatus((prev) => ({ ...prev, [layerKey]: 'scanning' }));
         addLog(`Running ${layerLabel} checks...`, 'info');
-        await sleep(500);
+        await sleep(100);
 
         const layerData = data.layers[layerKey];
         const status = layerData.status === 'danger' ? 'danger' : 'safe';
@@ -175,7 +174,7 @@ const SafetyGateway = () => {
               <Shield className="text-emerald-400 h-8 w-8" />
               LLM Safety Gateway
             </h1>
-            <p className="text-gray-400 mt-2 text-sm">Real-time Protective Architecture (Based on RVITM Model)</p>
+            <p className="text-gray-400 mt-2 text-sm">Real-time Protective Architecture</p>
           </div>
           <div className="flex gap-4 mt-4 md:mt-0">
             <div className="bg-gray-800 px-4 py-2 rounded-lg flex flex-col items-center border border-gray-700">
@@ -282,7 +281,7 @@ const SafetyGateway = () => {
 
                 {/* NODE 3: LDF */}
                 <PipelineNode 
-                  title="Ling. DNA" 
+                  title="Linguistic DNA" 
                   subtitle="Fingerprint" 
                   icon={BarChart3} 
                   status={layerStatus.LDF}
@@ -395,7 +394,7 @@ const SafetyGateway = () => {
                       </div>
                     </div>
                   )}
-                </div>
+                </div> 
               </div>
             )}
 

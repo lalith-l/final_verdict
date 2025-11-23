@@ -1,11 +1,9 @@
-# Complete working cell - run this after installing packages
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 import requests
 
-# Create sample data
 data = [
     {"text": "What is machine learning?", "label": 0},
     {"text": "Explain quantum physics", "label": 0},
@@ -21,7 +19,6 @@ df = pd.DataFrame(data)
 X = df['text']
 y = df['label']
 
-# Train model
 tfidf_vectorizer = TfidfVectorizer()
 X_tfidf = tfidf_vectorizer.fit_transform(X)
 model = MultinomialNB()
@@ -38,7 +35,6 @@ def chat_with_ollama(prompt):
     except:
         return "Ollama not running"
 
-# Test
 test_prompt = "What is artificial intelligence?"
 prediction = model.predict(tfidf_vectorizer.transform([test_prompt]))[0]
 safety = interpret_prediction(prediction)

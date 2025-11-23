@@ -2,7 +2,6 @@ import React from 'react';
 import { RefreshCw } from 'lucide-react';
 
 const PipelineNode = ({ title, subtitle, icon: Icon, status, active, description }) => {
-  // status: idle, scanning, safe, danger
   
   const getBorderColor = () => {
     if (status === 'danger') return 'border-red-500 shadow-red-500/30';
